@@ -303,18 +303,22 @@ namespace waavs {
 }
 
 
+
 // Implementation of hash function for ByteSpan
 // so it can be used in 'map' collections
 namespace std {
 	template<>
 	struct hash<waavs::ByteSpan> {
 		size_t operator()(const waavs::ByteSpan& span) const {
-			uint32_t hash = 0;
+			size_t ahash = waavs::bh_hashkey((const char*)span.data(), span.size());
+			return ahash;
 			
-			for (const unsigned char* p = span.fStart; p != span.fEnd; ++p) {
-				hash = hash * 31 + *p;
-			}
-			return hash;
+			//size_t hash = 0;
+			
+			//for (const unsigned char* p = span.fStart; p != span.fEnd; ++p) {
+			//	hash = hash * 31 + *p;
+			//}
+			//return hash;
 		}
 	};
 }
@@ -334,8 +338,6 @@ namespace waavs {
 
 namespace waavs
 {
-	static charset digitChars("0123456789");
-
 	static inline uint64_t chunk_to_u64(ByteSpan& s) noexcept;
 	static inline int64_t chunk_to_i64(ByteSpan& s) noexcept;
 
@@ -453,16 +455,8 @@ namespace waavs {
 }
 
 
-
-
-
-
-
 namespace waavs
 {
-	static charset wspChars(" \r\n\t\f\v");		// a set of typical whitespace chars
-
-
 	static inline size_t copy_to_cstr(char* str, size_t len, const ByteSpan& a) noexcept
 	{
 		size_t maxBytes = chunk_size(a) < len ? chunk_size(a) : len;
@@ -509,7 +503,7 @@ namespace waavs
 	{
 		const uint8_t* start = a.fStart;
 		const uint8_t* end = a.fEnd;
-		while (start < end&& wspChars(*start))
+		while (start < end&& chrWspChars(*start))
 			++start;
 		return { start, end };
 	}
@@ -616,7 +610,7 @@ namespace waavs
 		uint8_t quote{};
 
 		// Skip white space before the quoted bytes
-		src = chunk_ltrim(src, wspChars);
+		src = chunk_ltrim(src, chrWspChars);
 
 		if (!src || *src != lbracket)
 			return {};
@@ -650,7 +644,7 @@ namespace waavs
 	{
 		uint64_t v = 0;
 
-		while (s && digitChars(*s))
+		while (s && chrDecDigits(*s))
 		{
 			v = v * 10 + (uint64_t)(*s - '0');
 			s++;
@@ -670,7 +664,7 @@ namespace waavs
 			s++;
 		}
 
-		while (s && digitChars(*s))
+		while (s && chrDecDigits(*s))
 		{
 			v = v * 10 + (int64_t)(*s - '0');
 			s++;
@@ -727,7 +721,7 @@ namespace waavs
 		}
 
 		// Parse integer part
-		if (digitChars[*s]) {
+		if (chrDecDigits[*s]) {
 
 			intPart = chunk_to_u64(s);
 
@@ -740,7 +734,7 @@ namespace waavs
 			s++; // Skip '.'
 			auto sentinel = s.fStart;
 
-			if (digitChars(*s)) {
+			if (chrDecDigits(*s)) {
 				fracPart = chunk_to_u64(s);
 				auto ending = s.fStart;
 
@@ -769,7 +763,7 @@ namespace waavs
 				s++;
 			}
 
-			if (digitChars[*s]) {
+			if (chrDecDigits[*s]) {
 				expPart = chunk_to_u64(s);
 				res = res * powd(10, double(expSign * double(expPart)));
 			}

@@ -8,7 +8,7 @@
 #include "svgattributes.h"
 #include "svgpath.h"
 #include "svgtext.h"
-
+#include "viewport.h"
 
 
 namespace waavs {
@@ -58,7 +58,6 @@ namespace waavs {
 		
 		void bindSelfToGroot(IAmGroot* groot) override
 		{
-			//SVGGraphicsElement::bindToGroot(groot);
 			
 			if (fDimMarkerWidth.isSet())
 				fMarkerWidth = fDimMarkerWidth.calculatePixels();
@@ -198,7 +197,7 @@ namespace waavs {
 			return BLRect(bbox.x0, bbox.y0, bbox.x1 - bbox.x0, bbox.y1 - bbox.y0);
 		}
 		
-		BLRectI getBBox() const override
+		BLRect getBBox() const override
 		{
 			BLBox bbox{};
 			fPath.getBoundingBox(&bbox);
@@ -209,10 +208,10 @@ namespace waavs {
 			if (fHasTransform) {
 				auto leftTop = fTransform.mapPoint(bbox.x0, bbox.y0);
 				auto rightBottom = fTransform.mapPoint(bbox.x1, bbox.y1);
-				return BLRectI((int)leftTop.x, (int)leftTop.y, int((rightBottom.x - leftTop.x)+0.5), int((rightBottom.y - leftTop.y)+0.5));
+				return BLRect(leftTop.x, leftTop.y, (rightBottom.x - leftTop.x), (rightBottom.y - leftTop.y));
 			}
 
-			return BLRectI((int)bbox.x0, (int)bbox.y0, int((bbox.x1 - bbox.x0)+0.5), int((bbox.y1 - bbox.y0)+0.5));
+			return BLRect(bbox.x0, bbox.y0, (bbox.x1 - bbox.x0), (bbox.y1 - bbox.y0));
 		}
 		
 		bool contains(double x, double y) override
@@ -303,6 +302,7 @@ namespace waavs {
 		
 		/*
 		// for debugging purposes
+		// draw the vertices of the path
 		void drawVertices(IRenderSVG* ctx)
 		{	
 			for (int i = 0; i < fPath.size(); i++)
@@ -420,9 +420,7 @@ namespace waavs {
 		
 	
 		void bindSelfToGroot(IAmGroot* groot) override
-		{
-			//SVGGeometryElement::bindToGroot(groot);
-			
+		{	
 			BLLine geom{};
 			double dpi = 96;
 			double w = 1.0;
@@ -517,7 +515,7 @@ namespace waavs {
 				h = groot->canvasHeight();
 			}
 
-			// If height or width < 0, they are invalid
+			// If height or width <= 0, they are invalid
 			//if (fWidth.value() < 0) { fWidth.fValue = 0; fWidth.fIsSet = false; }
 			//if (fHeight.value() < 0) { fHeight.fValue = 0; fHeight.fIsSet = false; }
 
@@ -527,10 +525,10 @@ namespace waavs {
 
 			
 			
-			geom.x = fX.calculatePixels(w);
-			geom.y = fY.calculatePixels(h);
-			geom.w = fWidth.calculatePixels(w);
-			geom.h = fHeight.calculatePixels(h);
+			geom.x = fX.calculatePixels(w, 0, dpi);
+			geom.y = fY.calculatePixels(h, 0, dpi);
+			geom.w = fWidth.calculatePixels(w, 0, dpi);
+			geom.h = fHeight.calculatePixels(h, 0, dpi);
 
 			if (fRx.isSet() || fRy.isSet())
 			{
@@ -557,9 +555,9 @@ namespace waavs {
 				fPath.addRect(geom.x, geom.y, geom.w, geom.h);
 			}
 
-			// BUGBUG - turn off fill-rule attribute if it exists
+			// BUGBUG - fill-rule 
+			// turn off fill-rule attribute if it exists
 			// Because it makes something not display?
-			// what was it that was subject to this?
 			// poker-13-rey-de-diamantes-vectorizado.svg
 			// if you comment this out, then the red diamonds will not
 			// be filled in.
@@ -574,17 +572,17 @@ namespace waavs {
 		{
 			SVGGeometryElement::loadVisualProperties(attrs);
 
-			if (attrs.getAttribute("x"))
+			//if (attrs.getAttribute("x"))
 				fX.loadFromChunk(attrs.getAttribute("x"));
-			if (attrs.getAttribute("y"))
+			//if (attrs.getAttribute("y"))
 				fY.loadFromChunk(attrs.getAttribute("y"));
-			if (attrs.getAttribute("width"))
+			//if (attrs.getAttribute("width"))
 				fWidth.loadFromChunk(attrs.getAttribute("width"));
-			if (attrs.getAttribute("height"))
+			//if (attrs.getAttribute("height"))
 				fHeight.loadFromChunk(attrs.getAttribute("height"));
-			if (attrs.getAttribute("rx"))
+			//if (attrs.getAttribute("rx"))
 				fRx.loadFromChunk(attrs.getAttribute("rx"));
-			if (attrs.getAttribute("ry"))
+			//if (attrs.getAttribute("ry"))
 				fRy.loadFromChunk(attrs.getAttribute("ry"));
 			
 			needsBinding(true);
@@ -647,11 +645,11 @@ namespace waavs {
 		{
 			SVGGeometryElement::loadVisualProperties(attrs);
 		
-			if (attrs.getAttribute("cx"))
+			//if (attrs.getAttribute("cx"))
 				fCx.loadFromChunk(attrs.getAttribute("cx"));
-			if (attrs.getAttribute("cy"))
+			//if (attrs.getAttribute("cy"))
 				fCy.loadFromChunk(attrs.getAttribute("cy"));
-			if (attrs.getAttribute("r"))
+			//if (attrs.getAttribute("r"))
 				fR.loadFromChunk(attrs.getAttribute("r"));
 			
 			needsBinding(true);
@@ -708,13 +706,10 @@ namespace waavs {
 		{
 			SVGGeometryElement::loadVisualProperties(attrs);
 			
-			if (attrs.getAttribute("cx"))
+
 				fCx.loadFromChunk(attrs.getAttribute("cx"));
-			if (attrs.getAttribute("cy"))
 				fCy.loadFromChunk(attrs.getAttribute("cy"));
-			if (attrs.getAttribute("rx"))
 				fRx.loadFromChunk(attrs.getAttribute("rx"));
-			if (attrs.getAttribute("ry"))
 				fRy.loadFromChunk(attrs.getAttribute("ry"));
 			
 			needsBinding(true);
@@ -771,12 +766,7 @@ namespace waavs {
 		{
 			SVGGeometryElement::loadVisualProperties(attrs);
 
-			if (attrs.getAttribute("points"))
-			{
-				ByteSpan points = attrs.getAttribute("points");
-				loadPoints(points);
-			}
-
+			loadPoints(attrs.getAttribute("points"));
 		}
 
 	};
@@ -942,14 +932,18 @@ namespace waavs {
 		double width{ 0 };
 		double height{ 0 };
 		
-		SVGDimension fX{};
-		SVGDimension fY{};
-		SVGDimension fWidth{};
-		SVGDimension fHeight{};
+		SVGDimension fDimX{};
+		SVGDimension fDimY{};
+		SVGDimension fDimWidth{};
+		SVGDimension fDimHeight{};
 
-
+		
+		SVGUseElement(const SVGUseElement& other) = delete;
+		
 		SVGUseElement(IAmGroot* aroot) : SVGGraphicsElement(aroot) {}
 
+		
+		
 		const BLVar& getVariant() override
 		{
 			if (fWrappedNode)
@@ -984,14 +978,14 @@ namespace waavs {
 			}
 
 
-			if (fX.isSet())
-				x = fX.calculatePixels(w,0,dpi);
-			if (fY.isSet())
-				y = fY.calculatePixels(h, 0, dpi);
-			if (fWidth.isSet())
-				width = fWidth.calculatePixels(w, 0, dpi);
-			if (fHeight.isSet())
-				height = fHeight.calculatePixels(h, 0, dpi);
+			if (fDimX.isSet())
+				x = fDimX.calculatePixels(w,0,dpi);
+			if (fDimY.isSet())
+				y = fDimY.calculatePixels(h, 0, dpi);
+			if (fDimWidth.isSet())
+				width = fDimWidth.calculatePixels(w, 0, dpi);
+			if (fDimHeight.isSet())
+				height = fDimHeight.calculatePixels(h, 0, dpi);
 			
 			
 			// Use the root to lookup the wrapped node
@@ -1022,7 +1016,7 @@ namespace waavs {
 			// wrapped graphic might want to do something different
 			// really it applies to symbols, and they're do their 
 			// own scaling.
-			if (fWidth.isSet() && fHeight.isSet())
+			if (fDimWidth.isSet() && fDimHeight.isSet())
 			{
 				ctx->localSize(width, height);
 			}
@@ -1047,33 +1041,26 @@ namespace waavs {
 				href++;
 				fWrappedID = toString(href);
 			}
-			
-			if (attrs.getAttribute("x"))
-				fX.loadFromChunk(attrs.getAttribute("x"));
-			if (attrs.getAttribute("y"))
-				fY.loadFromChunk(attrs.getAttribute("y"));
-			if (attrs.getAttribute("width"))
-				fWidth.loadFromChunk(attrs.getAttribute("width"));
-			if (attrs.getAttribute("height"))
-				fHeight.loadFromChunk(attrs.getAttribute("height"));
+
+
+			fDimX.loadFromChunk(attrs.getAttribute("x"));
+			fDimY.loadFromChunk(attrs.getAttribute("y"));
+			fDimWidth.loadFromChunk(attrs.getAttribute("width"));
+			fDimHeight.loadFromChunk(attrs.getAttribute("height"));
 
 			needsBinding(true);
 		}
 		
 		void drawSelf(IRenderSVG* ctx) override
 		{
+			ctx->push();
+			
 			// Draw the wrapped graphic
 			if (fWrappedNode != nullptr)
 				fWrappedNode->draw(ctx);
-		}
-
-
-
 		
-		//void loadSelfFromXmlElement(const XmlElement& elem) override
-		//{
-		//	loadVisualProperties(*this);
-		//}
+			ctx->pop();
+		}
 		
 	};
 
@@ -1204,13 +1191,13 @@ namespace waavs {
 		{
 			SVGGraphicsElement::loadVisualProperties(attrs);
 
-			if (attrs.getAttribute("x"))
+			//if (attrs.getAttribute("x"))
 				fDimX.loadFromChunk(attrs.getAttribute("x"));
-			if (attrs.getAttribute("y"))
+			//if (attrs.getAttribute("y"))
 				fDimY.loadFromChunk(attrs.getAttribute("y"));
-			if (attrs.getAttribute("width"))
+			//if (attrs.getAttribute("width"))
 				fDimWidth.loadFromChunk(attrs.getAttribute("width"));
-			if (attrs.getAttribute("height"))
+			//if (attrs.getAttribute("height"))
 				fDimHeight.loadFromChunk(attrs.getAttribute("height"));
 
 			//printf("SVGImageNode: %3.0f %3.0f\n", fWidth, fHeight);
@@ -1533,20 +1520,6 @@ namespace waavs {
 							fGradient.setTransform(fGradientTransform);
 						}
 						
-						/*
-						switch (fGradient.type())
-						{
-						case BL_GRADIENT_TYPE_LINEAR:
-							fGradient.setValues(tmpGradient.linear());
-							break;
-						case BL_GRADIENT_TYPE_RADIAL:
-							fGradient.setValues(tmpGradient.radial());
-							break;
-						case BL_GRADIENT_TYPE_CONICAL:
-							fGradient.setValues(tmpGradient.conical());
-							break;
-						}
-						*/
 					}
 				}
 			}
@@ -1556,9 +1529,7 @@ namespace waavs {
 		}
 		
 		void bindSelfToGroot(IAmGroot* groot) override
-		{
-			//SVGGraphicsElement::bindToGroot(groot);
-			
+		{	
 			if (fTemplateReference) {
 				resolveReferences(groot, fTemplateReference);
 			}
@@ -1582,17 +1553,13 @@ namespace waavs {
 
 			// Whether we've loaded a template or not
 			// load the common attributes for gradients
-			if (attrs.getAttribute("spreadMethod"))
+			BLExtendMode extendMode{ BL_EXTEND_MODE_PAD };
+			if (parseSpreadMethod(attrs.getAttribute("spreadMethod"), extendMode))
 			{
-				auto spread = attrs.getAttribute("spreadMethod");
-				if (spread == "pad")
-					fGradient.setExtendMode(BL_EXTEND_MODE_PAD);
-				else if (spread == "reflect")
-					fGradient.setExtendMode(BL_EXTEND_MODE_REFLECT);
-				else if (spread == "repeat")
-					fGradient.setExtendMode(BL_EXTEND_MODE_REPEAT);
+				fGradient.setExtendMode(extendMode);
 			}
-
+			
+			
 			// read the gradientUnits
 			if (attrs.getAttribute("gradientUnits"))
 			{
@@ -1733,13 +1700,13 @@ namespace waavs {
 			// common goodies.
 			SVGGradient::loadVisualProperties(attrs);
 
-			if (attrs.getAttribute("x1"))
+			//if (attrs.getAttribute("x1"))
 				fX1.loadFromChunk(attrs.getAttribute("x1"));
-			if (attrs.getAttribute("y1"))
+			//if (attrs.getAttribute("y1"))
 				fY1.loadFromChunk(attrs.getAttribute("y1"));
-			if (attrs.getAttribute("x2"))
+			//if (attrs.getAttribute("x2"))
 				fX2.loadFromChunk(attrs.getAttribute("x2"));
-			if (attrs.getAttribute("y2"))
+			//if (attrs.getAttribute("y2"))
 				fY2.loadFromChunk(attrs.getAttribute("y2"));
 
 			needsBinding(true);
@@ -1829,15 +1796,15 @@ namespace waavs {
 		{
 			SVGGradient::loadVisualProperties(attrs);
 
-			if (attrs.getAttribute("cx"))
+			//if (attrs.getAttribute("cx"))
 				fCx.loadFromChunk(attrs.getAttribute("cx"));
-			if (attrs.getAttribute("cy"))
+			//if (attrs.getAttribute("cy"))
 				fCy.loadFromChunk(attrs.getAttribute("cy"));
-			if (attrs.getAttribute("r"))
+			//if (attrs.getAttribute("r"))
 				fR.loadFromChunk(attrs.getAttribute("r"));
-			if (attrs.getAttribute("fx"))
+			//if (attrs.getAttribute("fx"))
 				fFx.loadFromChunk(attrs.getAttribute("fx"));
-			if (attrs.getAttribute("fy"))
+			//if (attrs.getAttribute("fy"))
 				fFy.loadFromChunk(attrs.getAttribute("fy"));
 
 			needsBinding(true);
@@ -1908,7 +1875,13 @@ namespace waavs {
 
 			if (angle.isSet())
 			{
-				values.angle = angle.calculatePixels(360, 0, dpi);
+				// treat the angle as an angle type
+				ByteSpan angAttr = getAttribute("angle");
+				if (angAttr)
+				{
+					SVGAngleUnits units;
+					parseAngle(angAttr, values.angle, units);
+				}
 			}
 			
 			// If there is a specified repeat, then use that
@@ -1965,8 +1938,8 @@ namespace waavs {
 		SVGViewbox fViewbox{};
 		SVGDimension fRefX{};
 		SVGDimension fRefY{};
-		SVGDimension fX{};
-		SVGDimension fY{};
+		SVGDimension fDimX{};
+		SVGDimension fDimY{};
 		SVGDimension fDimWidth{};
 		SVGDimension fDimHeight{};
 
@@ -2026,37 +1999,14 @@ namespace waavs {
 		{
 			SVGGraphicsElement::loadVisualProperties(attrs);
 
-			if (attrs.getAttribute("viewBox"))
-			{
-				fViewbox.loadFromChunk(attrs.getAttribute("viewBox"));
-			}
+			fViewbox.loadFromChunk(attrs.getAttribute("viewBox"));
+			fRefX.loadFromChunk(attrs.getAttribute("refX"));
+			fRefY.loadFromChunk(attrs.getAttribute("refY"));
+			fDimX.loadFromChunk(attrs.getAttribute("x"));
+			fDimY.loadFromChunk(attrs.getAttribute("y"));
+			fDimWidth.loadFromChunk(attrs.getAttribute("width"));
+			fDimHeight.loadFromChunk(attrs.getAttribute("height"));
 
-
-			if (attrs.getAttribute("refX"))
-			{
-				fRefX.loadFromChunk(attrs.getAttribute("refX"));
-			}
-			if (attrs.getAttribute("refY"))
-			{
-				fRefY.loadFromChunk(attrs.getAttribute("refY"));
-			}
-
-			if (attrs.getAttribute("x"))
-			{
-				fX.loadFromChunk(attrs.getAttribute("x"));
-			}
-			if (attrs.getAttribute("y"))
-			{
-				fY.loadFromChunk(attrs.getAttribute("y"));
-			}
-			if (attrs.getAttribute("width"))
-			{
-				fDimWidth.loadFromChunk(attrs.getAttribute("width"));
-			}
-			if (attrs.getAttribute("height"))
-			{
-				fDimHeight.loadFromChunk(attrs.getAttribute("height"));
-			}
 		}
 		
 
@@ -2346,13 +2296,10 @@ namespace waavs {
 			SVGGraphicsElement::loadVisualProperties(attrs);
 
 
-			if (attrs.getAttribute("x"))
+
 				fDimX.loadFromChunk(attrs.getAttribute("x"));
-			if (attrs.getAttribute("y"))
 				fDimY.loadFromChunk(attrs.getAttribute("y"));
-			if (attrs.getAttribute("width"))
 				fDimWidth.loadFromChunk(attrs.getAttribute("width"));
-			if (attrs.getAttribute("height"))
 				fDimHeight.loadFromChunk(attrs.getAttribute("height"));
 
 		}
@@ -2497,7 +2444,6 @@ namespace waavs {
 
 		void bindSelfToGroot(IAmGroot* groot) override
 		{
-			//SVGGraphicsElement::bindToGroot(groot);
 
 			// Get the system language
 			fSystemLanguage = groot->systemLanguage();
@@ -2592,6 +2538,7 @@ namespace waavs {
 		SVGPatternNode(IAmGroot* aroot) :SVGGraphicsElement(aroot) 
 		{
 			fPattern.setExtendMode(BL_EXTEND_MODE_PAD);
+			fPatternTransform = BLMatrix2D::makeIdentity();
 			
 			isStructural(false);
 		}
@@ -2610,7 +2557,8 @@ namespace waavs {
 			// This should be called
 			if (fVar.isNull())
 			{
-				fVar.assign(fPattern);
+				fVar = fPattern;
+				//fVar.assign(fPattern);
 			}
 
 			return fVar;
@@ -2724,11 +2672,19 @@ namespace waavs {
 				// of the pattern, and thus the size of the backing store
 				if (fViewbox.isSet())
 				{
-					// If a viewbox is set, then the 'width' and 'height' parameters
-					// are ignored
-					//bbox.reset(0, 0, fViewbox.width(), fViewbox.height());
-					iWidth = (int)fViewbox.width();
-					iHeight = (int)fViewbox.height();
+					if (fWidth.isSet() && fHeight.isSet())
+					{
+						iWidth = (int)fWidth.calculatePixels();
+						iHeight = (int)fHeight.calculatePixels();
+					}
+					else {
+
+						// If a viewbox is set, then the 'width' and 'height' parameters
+						// are ignored
+						//bbox.reset(0, 0, fViewbox.width(), fViewbox.height());
+						iWidth = (int)fViewbox.width();
+						iHeight = (int)fViewbox.height();
+					}
 				}
 				else {
 					// If we don't have a viewbox, then the bbox can be either
@@ -2772,14 +2728,12 @@ namespace waavs {
 				IRenderSVG ctx(groot->fontHandler());
 				ctx.begin(fCachedImage);
 				ctx.clearAll();
-				//ctx.fillAll(BLRgba32(0xFFffffffu));
 				ctx.setCompOp(BL_COMP_OP_SRC_COPY);
 				ctx.noStroke();
-
+				//ctx.setTransform(fPatternTransform);
+				
 				draw(&ctx);
 				ctx.flush();
-
-
 
 				// apply the patternTransform
 				// maybe do a translate on x, y?
@@ -2807,17 +2761,17 @@ namespace waavs {
 
 				}
 			
-
-
 			// Finallly, assign the pattern to the fVar
 			// do it in the getVariant() call
-
 		}
 
 		void loadVisualProperties(const XmlAttributeCollection& attrs) override
 		{
 			SVGGraphicsElement::loadVisualProperties(attrs);
 
+			//parseTransform(getAttribute("patternTransform"), fPatternTransform);
+
+			
 			fX.loadFromChunk(getAttribute("x"));
 			fY.loadFromChunk(getAttribute("y"));
 			fWidth.loadFromChunk(getAttribute("width"));
@@ -2832,13 +2786,6 @@ namespace waavs {
 			else if (attrs.getAttribute("xlink:href"))
 				fTemplateReference = attrs.getAttribute("xlink:href");
 
-			if (getAttribute("patternTransform"))
-			{
-				SVGTransform tform(root());
-				tform.loadFromChunk(getAttribute("patternTransform"));
-				fPatternTransform = tform.fTransform;
-				fPattern.setTransform(fPatternTransform);
-			}
 		}
 	
 	};
@@ -2860,33 +2807,93 @@ namespace waavs {
 
 		}
 
+		double fX{ 0 };
+		double fY{ 0 };
+		double fWidth{ 0 };
+		double fHeight{ 0 };
+		ViewPort fViewport{};
 		
 		SVGViewbox fViewbox{};
-		SVGDimension fX{};
-		SVGDimension fY{};
-		SVGDimension fWidth{};
-		SVGDimension fHeight{};
+		SVGDimension fDimX{};
+		SVGDimension fDimY{};
+		SVGDimension fDimWidth{};
+		SVGDimension fDimHeight{};
 		
 		SVGSVGElement(IAmGroot *aroot)
 			: SVGGraphicsElement(aroot)
 		{
 		}
 
+		BLRect frame() const override
+		{
+			if (fViewbox.isSet()) {
+				return fViewbox.fRect;
+			}
+
+			return BLRect(fX, fY, fWidth, fHeight);
+		}
+		
+		/*
 		BLRect viewport() const { 
 			if (fViewbox.isSet()) {
 				return fViewbox.fRect;
 			}
 			
 			// BUGBUG - Right here we need to use IAmGroot to get the size of the window
-			if (fWidth.isSet() && fHeight.isSet()) {
-				return BLRect(0, 0, fWidth.calculatePixels(), fHeight.calculatePixels());
+			if (fDimWidth.isSet() && fDimHeight.isSet()) {
+				return BLRect(0, 0, fDimWidth.calculatePixels(), fDimHeight.calculatePixels());
 			}
 			
 			// If no viewbox, width, or height, then we need to use the calculated 
 			// bounding box of the document
 			return frame();
 		}
+		*/
 		
+		void bindSelfToGroot(IAmGroot* groot) override
+		{
+			// We need to resolve the size of the user space
+			// start out with some information from groot
+			double dpi = 96;
+			double w = 1.0;
+			double h = 1.0;
+
+			if (nullptr != groot)
+			{
+				dpi = groot->dpi();
+				w = groot->canvasWidth();
+				h = groot->canvasHeight();
+			}
+
+			fX = fDimX.calculatePixels(w, 0, dpi);
+			fY = fDimY.calculatePixels(h, 0, dpi);
+
+			// if we have width and height, then set those
+			if (fDimWidth.isSet() && fDimHeight.isSet())
+			{
+				fWidth = fDimWidth.calculatePixels(w,0,dpi);
+				fHeight = fDimHeight.calculatePixels(h,0,dpi);
+			}
+			else {
+				// if the width and height are not explicitly set, then use
+				// the canvas size instead
+				fWidth = w;
+				fHeight = h;
+			}
+			
+			if (fViewbox.isSet())
+			{
+				fViewport.sceneFrame(fViewbox.fRect);
+				fViewport.surfaceFrame(frame());
+			}
+			else
+			{
+				fViewport.sceneFrame(frame());
+				fViewport.surfaceFrame(frame());
+
+			}
+
+		}
 		
 		void draw(IRenderSVG *ctx) override
 		{
@@ -2894,26 +2901,15 @@ namespace waavs {
 
 			// Start with default state
 			//ctx->blendMode(BL_COMP_OP_SRC_OVER);
-
-			//ctx->setStrokeMiterLimit(4.0);
-			ctx->strokeJoin(BL_STROKE_JOIN_MITER_CLIP);
-			//ctx->strokeJoin(BL_STROKE_JOIN_MITER_BEVEL);
-			//ctx->strokeJoin(BL_STROKE_JOIN_MITER_ROUND);
-			//ctx->strokeJoin(BL_STROKE_JOIN_ROUND);
-			
-			ctx->setFillRule(BL_FILL_RULE_NON_ZERO);
-			
-			ctx->fill(BLRgba32(0, 0, 0));
-			ctx->noStroke();
-			ctx->strokeWidth(1.0);
-			ctx->textAlign(ALIGNMENT::LEFT, ALIGNMENT::BASELINE);
-			ctx->textFamily("Arial");
-			ctx->textSize(16);
 			
 			// Apply attributes that have been gathered
 			// in the case of the root node, it's mostly the viewport
 			applyAttributes(ctx);
 
+			// Apply scaling transform based on viewbox
+			//ctx->setTransform(fViewport.sceneToSurfaceTransform());
+			ctx->translate(fX, fY);
+			
 			// Draw the children
 			drawChildren(ctx);
 
@@ -2927,8 +2923,11 @@ namespace waavs {
 
 			
 			fViewbox.loadFromChunk(getAttribute("viewBox"));
-			fWidth.loadFromChunk(getAttribute("width"));
-			fHeight.loadFromChunk(getAttribute("height"));
+
+			fDimX.loadFromChunk(getAttribute("x"));
+			fDimY.loadFromChunk(getAttribute("y"));
+			fDimWidth.loadFromChunk(getAttribute("width"));
+			fDimHeight.loadFromChunk(getAttribute("height"));
 		}
 		
 

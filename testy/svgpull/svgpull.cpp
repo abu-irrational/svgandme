@@ -1,5 +1,7 @@
 
 
+#include <iostream>
+
 #include "mappedfile.h"
 #include "xmlutil.h"
 
@@ -8,22 +10,32 @@
 
 using namespace waavs;
 
-static void testParseNumber()
+static void printRect(const BLRect& aRect)
 {
-	const char* str = "-2.34e3M10,20";
-    ByteSpan s(str);
-    double num{ 0 };
+	printf("x=%f, y=%f, w=%f, h=%f\n", aRect.x, aRect.y, aRect.w, aRect.h);
+}
+
+using cHash = std::hash<ByteSpan>;
+
+static void testSomething()
+{
+	ByteSpan a("blue");
+    ByteSpan b("blueviolet");
+
+    // Get std::hash value from each of them and
+    // print them out.
+	std::cout << "hash(a) = " << cHash{}(a) << std::endl;
+	std::cout << "hash(b) = " << cHash{}(b) << std::endl;
     
-    while (parseNextNumber(s, num))
-    {
-        printf("NUM: %f\n", num);
-    }
+
+
+    
 
 }
 
 int main(int argc, char** argv)
 {
-    testParseNumber();
+    testSomething();
     
     if (argc < 2)
     {

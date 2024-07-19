@@ -16,58 +16,6 @@
 #include "uievent.h"
 
 
-
-
-//
-// These are various routines that help manipulate the BLRect
-// structure.  Finding corners, moving, query containment
-// scaling, merging, expanding, and the like
-
-namespace waavs {
-    inline double right(const BLRect& r) { return r.x + r.w; }
-    inline double left(const BLRect& r) { return r.x; }
-    inline double top(const BLRect& r) { return r.y; }
-    inline double bottom(const BLRect& r) { return r.y + r.h; }
-    inline BLPoint center(const BLRect& r) { return { r.x + (r.w / 2),r.y + (r.h / 2) }; }
-
-    inline void moveBy(BLRect& r, double dx, double dy) { r.x += dx; r.y += dy; }
-    inline void moveBy(BLRect& r, const BLPoint& dxy) { r.x += dxy.x; r.y += dxy.y; }
-
-
-    inline bool containsRect(const BLRect& a, double x, double y)
-    {
-        return (x >= a.x && x < a.x + a.w && y >= a.y && y < a.y + a.h);
-    }
-
-    inline bool containsRect(const BLRect& a, const BLPoint& pt)
-    {
-        return containsRect(a, pt.x, pt.y);
-    }
-
-    // Expand the size of the rectangle such that the supplied point
-    // is contained within the new rectangle
-    inline BLRect mergeRect(const BLRect& a, const BLPoint& b) {
-        double x0 = min(a.x, b.x);
-        double y0 = min(a.y, b.y);
-        double x1 = max(a.x + a.w, b.x);
-        double y1 = max(a.y + a.h, b.y);
-
-        return BLRect( x0, y0, x1-x0, y1-y0 );
-    }
-    // Expand the size of the rectangle such that the supplied rectangle
-    // is contained within the new rectangle
-    inline BLRect mergeRect(const BLRect& a, const BLRect& b) {
-        double x0 = min(a.x, b.x);
-        double y0 = min(a.y, b.y);
-        double x1 = max(a.x + a.w, b.x + b.w);
-        double y1 = max(a.y + a.h, b.y + b.h);
-        return BLRect( x0, y0, x1-x0, y1-y0 );
-    }
-
-    inline void expandRect(BLRect& a, const BLPoint& b) { a = mergeRect(a, b); }
-    inline void expandRect(BLRect& a, const BLRect& b) { a = mergeRect(a, b); }
-}
-
 namespace waavs {
     // Experimental
     struct IPlaceable
@@ -79,7 +27,7 @@ namespace waavs {
         bool autoMoveToFront() const { return fAutoMoveToFront; }
 
         virtual BLRect frame() const = 0;
-        virtual BLRectI getBBox() const = 0;
+        virtual BLRect getBBox() const = 0;
 
         virtual bool contains(double x, double y)
         {
@@ -176,7 +124,7 @@ namespace waavs {
 
         // IPlaceable
         BLRect frame() const override { return BLRect(); }
-        BLRectI getBBox() const override { return BLRectI{}; }
+        BLRect getBBox() const override { return BLRect{}; }
         
         void moveTo(double x, double y) override { ; }
         void mouseEvent(const MouseEvent& e) override { return; }
@@ -228,7 +176,9 @@ namespace waavs {
 
         virtual double canvasWidth() const = 0;
         virtual double canvasHeight() const = 0;
+        
         virtual double dpi() const = 0;
+        virtual void dpi(const double d) = 0;
     };
 
 }
@@ -276,10 +226,6 @@ namespace waavs {
             fRawValue = chunk_trim(inChunk, xmlwsp);
             if (!fRawValue)
             {
-                // convert the inChunk to a string
-                // so we can print it out
-				std::string chunkStr(inChunk.fStart, inChunk.fEnd);
-				//printf("BLANK VisualProperty: %s\n", chunkStr.c_str());
                 set(false);
                 return false;
             }
@@ -313,11 +259,6 @@ namespace waavs {
 	{
 		gSVGAttributeCreation[name] = func;
 	}
-
-    //static void registerSVGProperty(const std::string& name, std::function < std::shared_ptr<SVGVisualProperty>(IAmGroot* aroot, const XmlAttributeCollection&)> func)
-    //{
-    //    gSVGPropertyCreation[name] = func;
-    //}
     
 }
 
@@ -958,10 +899,12 @@ namespace waavs {
             // then create a new node of that type and add it
             // to the list of nodes.
 			auto aname = elem.name();
-            if (gSVGGraphicsElementCreation.find(aname) != gSVGGraphicsElementCreation.end())
+			auto it = gSVGGraphicsElementCreation.find(aname);
+            if (it != gSVGGraphicsElementCreation.end())
             {
-                auto& func = gSVGGraphicsElementCreation[aname];
-                auto node = func(root(), iter);
+                //auto& func = gSVGGraphicsElementCreation[aname];
+                //auto node = func(root(), iter);
+                auto node = it->second(root(), iter);
                 addNode(node);
             }
             else {

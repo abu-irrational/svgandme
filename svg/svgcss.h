@@ -218,7 +218,7 @@ namespace waavs
         CSSInlineStyleIterator(const waavs::ByteSpan& inChunk) 
             : fSource(inChunk)
         {
-            next();
+            //next();
         }
 
 		CSSInlineStyleIterator& operator=(const CSSInlineStyleIterator& other)
@@ -270,7 +270,7 @@ namespace waavs
             :fSource(inChunk),
 			fMark(inChunk)
         {
-            next();
+            //next();
         }
 
         explicit operator bool() const { return (bool)fCurrentItem; }
@@ -379,6 +379,7 @@ namespace waavs
         std::shared_ptr<CSSSelector> getSelector(const std::string& name, CSSSelectorKind kind)
         {
             
+            /*
 			switch (kind)
 			{
 			case CSSSelectorKind::CSS_SELECTOR_ID:
@@ -405,7 +406,43 @@ namespace waavs
 			default:
 				return nullptr;
 			}
+            */
+            
+            switch (kind)
+            {
+            case CSSSelectorKind::CSS_SELECTOR_ID:
+            {
+                auto it = fIDSelectors.find(name);
+                if (it != fIDSelectors.end())
+                    return it->second;
+                break;
+            }
+            case CSSSelectorKind::CSS_SELECTOR_CLASS:
+            {
+                auto it = fClassSelectors.find(name);
+                if (it != fClassSelectors.end())
+                    return it->second;
+                break;
+            }
+            case CSSSelectorKind::CSS_SELECTOR_ATRULE:
+            {
+                auto it = fAnimationSelectors.find(name);
+                if (it != fAnimationSelectors.end())
+                    return it->second;
+                break;
+            }
+            case CSSSelectorKind::CSS_SELECTOR_ELEMENT:
+            {
+                auto it = fElementSelectors.find(name);
+                if (it != fElementSelectors.end())
+                    return it->second;
+                break;
+            }
+            default:
+                break;
+            }
 
+            
             return nullptr;
         }
 
@@ -476,12 +513,12 @@ namespace waavs
 
             // Iterate over the selectors
             CSSSelectorIterator iter(fSource);
-            while (iter)
+            while (iter.next())
             {
 				auto sel = std::make_shared<CSSSelector>(*iter);
 				addSelector(sel);
                 
-                ++iter;
+                //++iter;
             }
 
             return true;

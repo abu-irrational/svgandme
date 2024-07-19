@@ -23,6 +23,37 @@
 #include "bspan.h"
 #include "maths.h"
 
+// uncomment the following to print diagnostics
+//#define PATH_COMMAND_DEBUG 1
+
+/*
+// Old reference
+// A dispatch std::map that matches the command character to the
+		// appropriate parse function
+		static std::map<SegmentCommand, std::function<bool(ByteSpan&, BLPath&, int&)>> parseMap = {
+			{SegmentCommand::MoveTo, parseMoveTo},				// M
+			{SegmentCommand::MoveBy, parseMoveBy},				// m
+			{SegmentCommand::LineTo, parseLineTo},				// L
+			{SegmentCommand::LineBy, parseLineBy},				// l
+			{SegmentCommand::HLineTo, parseHLineTo},			// H
+			{SegmentCommand::HLineBy, parseHLineBy},			// h
+			{SegmentCommand::VLineTo, parseVLineTo},			// V
+			{SegmentCommand::VLineBy, parseVLineBy},			// v
+			{SegmentCommand::CubicTo, parseCubicTo},			// C
+			{SegmentCommand::CubicBy, parseCubicBy},			// c
+			{SegmentCommand::SCubicTo, parseSmoothCubicTo},		// S
+			{SegmentCommand::SCubicBy, parseSmoothCubicBy},		// s
+			{SegmentCommand::QuadTo, parseQuadTo},				// Q
+			{SegmentCommand::QuadBy, parseQuadBy},				// q
+			{SegmentCommand::SQuadTo, parseSmoothQuadTo},		// T
+			{SegmentCommand::SQuadBy, parseSmoothQuadBy},		// t
+			{SegmentCommand::ArcTo, parseArcTo},				// A
+			{SegmentCommand::ArcBy, parseArcBy},				// a
+			{SegmentCommand::CloseTo, parseClose},				// Z
+			{SegmentCommand::CloseBy, parseClose}				// z
+		};
+*/
+
 
 namespace waavs {
 
@@ -61,7 +92,7 @@ namespace waavs {
 
 
 
-//#define PATH_COMMAND_DEBUG 1
+
 
 namespace waavs
 {
@@ -75,15 +106,13 @@ namespace waavs
 	// such as "M 10 10 20 20 30 30"
 	//
 	namespace blpathparser {
-		static charset whitespaceChars(",\t\n\f\r ");          // whitespace found in paths
-		static charset commandChars("mMlLhHvVcCqQsStTaAzZ");   // set of characters used for commands
+		static charset pathCmdChars("mMlLhHvVcCqQsStTaAzZ");   // set of characters used for commands
 		static charset numberChars("0123456789.+-eE");         // digits, symbols, and letters found in numbers
-		static charset leadingChars("0123456789.+-");          // digits, symbols, and letters found in numbers
-		static charset digitChars("0123456789");               // only digits
+		static charset leadingChars("0123456789.+-");          // digits, symbols, and letters found at start of numbers
 
 
 		
-		static bool parseMoveTo(ByteSpan& s, BLPath& apath, int& iteration)
+		static bool parseMoveTo(ByteSpan& s, BLPath& apath, int& iteration) noexcept
 		{
 			double x{ 0 };
 			double y{ 0 };
@@ -101,9 +130,9 @@ namespace waavs
 #endif
 			}
 			else {
-				apath.lineTo(x, y);
+				res = apath.lineTo(x, y);
 #ifdef PATH_COMMAND_DEBUG
-				//printf("// moveTo, iteration: %d\n", iteration);
+				printf("// moveTo, iteration: %d\n", iteration);
 				printf("apath.lineTo(%f, %f);\n", x, y);
 #endif
 			}
@@ -113,11 +142,12 @@ namespace waavs
 			return true;
 		}
 
-		static bool parseMoveBy(ByteSpan& s, BLPath& apath, int& iteration)
+		static bool parseMoveBy(ByteSpan& s, BLPath& apath, int& iteration) noexcept
 		{
 			double x{ 0 };
 			double y{ 0 };
-
+			BLResult res = BL_SUCCESS;
+			
 			if (!parseNextNumber(s, x))
 				return false;
 			if (!parseNextNumber(s, y))
@@ -127,16 +157,17 @@ namespace waavs
 			apath.getLastVertex(&lastPos);
 
 			if (iteration == 0) {
-				apath.moveTo(lastPos.x + x, lastPos.y + y);
+				res = apath.moveTo(lastPos.x + x, lastPos.y + y);
 
 #ifdef PATH_COMMAND_DEBUG
+				printf("// moveBy(%f, %f), iteration: %d\n", x, y, iteration);
 				printf("apath.moveTo(%f, %f);\n", lastPos.x + x, lastPos.y + y);
 #endif
 			}
 			else {
-				apath.lineTo(lastPos.x + x, lastPos.y + y);
+				res = apath.lineTo(lastPos.x + x, lastPos.y + y);
 #ifdef PATH_COMMAND_DEBUG
-				//printf("// moveBy, iteration: %d\n", iteration);
+				printf("// moveBy(%f, %f), iteration: %d\n", x, y, iteration);
 				printf("apath.lineTo(%f, %f);\n", lastPos.x + x, lastPos.y + y);
 #endif
 			}
@@ -146,17 +177,18 @@ namespace waavs
 		}
 
 		// Command 'L' - LineTo
-		static bool parseLineTo(ByteSpan& s, BLPath& apath, int& iteration)
+		static bool parseLineTo(ByteSpan& s, BLPath& apath, int& iteration) noexcept
 		{
 			double x{ 0 };
 			double y{ 0 };
-
+			BLResult res = BL_SUCCESS;
+			
 			if (!parseNextNumber(s, x))
 				return false;
 			if (!parseNextNumber(s, y))
 				return false;
 
-			apath.lineTo(x, y);
+			res = apath.lineTo(x, y);
 
 #ifdef PATH_COMMAND_DEBUG
 			printf("apath.lineTo(%f, %f);\n", x, y);
@@ -167,7 +199,7 @@ namespace waavs
 			return true;
 		}
 
-		static bool parseLineBy(ByteSpan& s, BLPath& apath, int& iteration)
+		static bool parseLineBy(ByteSpan& s, BLPath& apath, int& iteration) noexcept
 		{
 			double x{ 0 };
 			double y{ 0 };
@@ -184,6 +216,7 @@ namespace waavs
 			res = apath.lineTo(lastPos.x + x, lastPos.y + y);
 
 #ifdef PATH_COMMAND_DEBUG
+			printf("// lineBy: (%f, %f), %d\n", x, y, iteration);
 			printf("apath.lineTo([%d] %f, %f);\n", res, lastPos.x + x, lastPos.y + y);
 #endif
 			
@@ -193,16 +226,17 @@ namespace waavs
 		}
 
 		// Command - H
-		static bool parseHLineTo(ByteSpan& s, BLPath& apath, int& iteration)
+		static bool parseHLineTo(ByteSpan& s, BLPath& apath, int& iteration) noexcept
 		{
 			double x{ 0 };
-
+			BLResult res = BL_SUCCESS;
+			
 			if (!parseNextNumber(s, x))
 				return false;
 
 			BLPoint lastPos{};
 			apath.getLastVertex(&lastPos);
-			apath.lineTo(x, lastPos.y);
+			res = apath.lineTo(x, lastPos.y);
 
 #ifdef PATH_COMMAND_DEBUG
 			printf("apath.lineTo(%f, %f);\n", x, lastPos.y);
@@ -214,16 +248,17 @@ namespace waavs
 		}
 
 		// Command - h
-		static bool parseHLineBy(ByteSpan& s, BLPath& apath, int& iteration)
+		static bool parseHLineBy(ByteSpan& s, BLPath& apath, int& iteration) noexcept
 		{
 			double x{ 0 };
-
+			BLResult res = BL_SUCCESS;
+			
 			if (!parseNextNumber(s, x))
 				return false;
 
 			BLPoint lastPos{};
 			apath.getLastVertex(&lastPos);
-			apath.lineTo(lastPos.x + x, lastPos.y);
+			res = apath.lineTo(lastPos.x + x, lastPos.y);
 
 #ifdef PATH_COMMAND_DEBUG
 			//printf("// hLineBy\n");
@@ -236,16 +271,17 @@ namespace waavs
 		}
 
 		// Command - V
-		static bool parseVLineTo(ByteSpan& s, BLPath& apath, int& iteration)
+		static bool parseVLineTo(ByteSpan& s, BLPath& apath, int& iteration) noexcept
 		{
 			double y{ 0 };
-
+			BLResult res = BL_SUCCESS;
+			
 			if (!parseNextNumber(s, y))
 				return false;
 
 			BLPoint lastPos{};
 			apath.getLastVertex(&lastPos);
-			apath.lineTo(lastPos.x, y);
+			res = apath.lineTo(lastPos.x, y);
 
 #ifdef PATH_COMMAND_DEBUG
 			//printf("// VLineTo, iteration: %d\n", iteration);
@@ -258,16 +294,17 @@ namespace waavs
 		}
 
 		// Command - v
-		static bool parseVLineBy(ByteSpan& s, BLPath& apath, int& iteration)
+		static bool parseVLineBy(ByteSpan& s, BLPath& apath, int& iteration) noexcept
 		{
 			double y{ 0 };
-
+			BLResult res = BL_SUCCESS;
+			
 			if (!parseNextNumber(s, y))
 				return false;
 
 			BLPoint lastPos{};
 			apath.getLastVertex(&lastPos);
-			apath.lineTo(lastPos.x, lastPos.y + y);
+			res = apath.lineTo(lastPos.x, lastPos.y + y);
 
 #ifdef PATH_COMMAND_DEBUG
 			//printf("// vLineBy, iteration: %d\n", iteration);
@@ -279,13 +316,14 @@ namespace waavs
 		}
 
 		// Command - Q
-		static bool parseQuadTo(ByteSpan& s, BLPath& apath, int& iteration)
+		static bool parseQuadTo(ByteSpan& s, BLPath& apath, int& iteration) noexcept
 		{
 			double x1{ 0 };
 			double y1{ 0 };
 			double x2{ 0 };
 			double y2{ 0 };
-
+			BLResult res = BL_SUCCESS;
+			
 			if (!parseNextNumber(s, x1))
 				return false;
 			if (!parseNextNumber(s, y1))
@@ -295,7 +333,7 @@ namespace waavs
 			if (!parseNextNumber(s, y2))
 				return false;
 
-			apath.quadTo(x1, y1, x2, y2);
+			res = apath.quadTo(x1, y1, x2, y2);
 
 			iteration++;
 
@@ -303,13 +341,14 @@ namespace waavs
 		}
 
 		// Command - q
-		static bool parseQuadBy(ByteSpan& s, BLPath& apath, int& iteration)
+		static bool parseQuadBy(ByteSpan& s, BLPath& apath, int& iteration) noexcept
 		{
 			double x1{ 0 };
 			double y1{ 0 };
 			double x2{ 0 };
 			double y2{ 0 };
-
+			BLResult res = BL_SUCCESS;
+			
 			if (!parseNextNumber(s, x1))
 				return false;
 			if (!parseNextNumber(s, y1))
@@ -322,7 +361,7 @@ namespace waavs
 			BLPoint lastPos{};
 			apath.getLastVertex(&lastPos);
 
-			apath.quadTo(lastPos.x + x1, lastPos.y + y1, lastPos.x + x2, lastPos.y + y2);
+			res = apath.quadTo(lastPos.x + x1, lastPos.y + y1, lastPos.x + x2, lastPos.y + y2);
 
 			iteration++;
 
@@ -330,17 +369,18 @@ namespace waavs
 		}
 
 		// Command - T
-		static bool parseSmoothQuadTo(ByteSpan& s, BLPath& apath, int& iteration)
+		static bool parseSmoothQuadTo(ByteSpan& s, BLPath& apath, int& iteration) noexcept
 		{
 			double x2{ 0 };
 			double y2{ 0 };
-
+			BLResult res = BL_SUCCESS;
+			
 			if (!parseNextNumber(s, x2))
 				return false;
 			if (!parseNextNumber(s, y2))
 				return false;
 
-			apath.smoothQuadTo(x2, y2);
+			res = apath.smoothQuadTo(x2, y2);
 
 			iteration++;
 
@@ -348,11 +388,12 @@ namespace waavs
 		}
 
 		// Command - t
-		static bool parseSmoothQuadBy(ByteSpan& s, BLPath& apath, int& iteration)
+		static bool parseSmoothQuadBy(ByteSpan& s, BLPath& apath, int& iteration) noexcept
 		{
 			double x2{ 0 };
 			double y2{ 0 };
-
+			BLResult res = BL_SUCCESS;
+			
 			if (!parseNextNumber(s, x2))
 				return false;
 			if (!parseNextNumber(s, y2))
@@ -361,7 +402,7 @@ namespace waavs
 			BLPoint lastPos{};
 			apath.getLastVertex(&lastPos);
 
-			apath.smoothQuadTo(lastPos.x + x2, lastPos.y + y2);
+			res = apath.smoothQuadTo(lastPos.x + x2, lastPos.y + y2);
 
 			iteration++;
 
@@ -369,7 +410,7 @@ namespace waavs
 		}
 
 		// Command - C
-		static bool parseCubicTo(ByteSpan& s, BLPath& apath, int& iteration)
+		static bool parseCubicTo(ByteSpan& s, BLPath& apath, int& iteration) noexcept
 		{
 			double x1{ 0 };
 			double y1{ 0 };
@@ -404,7 +445,7 @@ namespace waavs
 		}
 
 		// Command - c
-		static bool parseCubicBy(ByteSpan& s, BLPath& apath, int& iteration)
+		static bool parseCubicBy(ByteSpan& s, BLPath& apath, int& iteration) noexcept
 		{
 			double x1{ 0 };
 			double y1{ 0 };
@@ -444,13 +485,14 @@ namespace waavs
 		}
 
 		// Command - S
-		static bool parseSmoothCubicTo(ByteSpan& s, BLPath& apath, int& iteration)
+		static bool parseSmoothCubicTo(ByteSpan& s, BLPath& apath, int& iteration) noexcept
 		{
 			double x2{ 0 };
 			double y2{ 0 };
 			double x3{ 0 };
 			double y3{ 0 };
-
+			BLResult res = BL_SUCCESS;
+			
 			if (!parseNextNumber(s, x2))
 				return false;
 			if (!parseNextNumber(s, y2))
@@ -460,7 +502,7 @@ namespace waavs
 			if (!parseNextNumber(s, y3))
 				return false;
 
-			apath.smoothCubicTo(x2, y2, x3, y3);
+			res = apath.smoothCubicTo(x2, y2, x3, y3);
 
 			iteration++;
 
@@ -468,7 +510,7 @@ namespace waavs
 		}
 
 		// Command - s
-		static bool parseSmoothCubicBy(ByteSpan& s, BLPath& apath, int& iteration)
+		static bool parseSmoothCubicBy(ByteSpan& s, BLPath& apath, int& iteration) noexcept
 		{
 			double x2{ 0 };
 			double y2{ 0 };
@@ -500,7 +542,7 @@ namespace waavs
 
 
 		// Command - A
-		static bool parseArcTo(ByteSpan& s, BLPath& apath, int& iteration)
+		static bool parseArcTo(ByteSpan& s, BLPath& apath, int& iteration) noexcept
 		{
 			double rx{ 0 };
 			double ry{ 0 };
@@ -509,7 +551,8 @@ namespace waavs
 			double sweepFlag{ 0 };
 			double x{ 0 };
 			double y{ 0 };
-
+			BLResult res = BL_SUCCESS;
+			
 			if (!parseNextNumber(s, rx))
 				return false;
 			if (!parseNextNumber(s, ry))
@@ -529,7 +572,7 @@ namespace waavs
 			bool swp = sweepFlag > 0.5f;
 			double xrot = radians(xAxisRotation);
 
-			apath.ellipticArcTo(BLPoint(rx, ry), xrot, larc, swp, BLPoint(x, y));
+			res = apath.ellipticArcTo(BLPoint(rx, ry), xrot, larc, swp, BLPoint(x, y));
 
 			iteration++;
 
@@ -537,7 +580,7 @@ namespace waavs
 		}
 
 		// Command - a
-		static bool parseArcBy(ByteSpan& s, BLPath& apath, int& iteration)
+		static bool parseArcBy(ByteSpan& s, BLPath& apath, int& iteration) noexcept
 		{
 			double rx{ 0 };
 			double ry{ 0 };
@@ -546,7 +589,8 @@ namespace waavs
 			double sweepFlag{ 0 };
 			double x{ 0 };
 			double y{ 0 };
-
+			BLResult res = BL_SUCCESS;
+			
 			if (!parseNextNumber(s, rx))
 				return false;
 			if (!parseNextNumber(s, ry))
@@ -569,7 +613,7 @@ namespace waavs
 			BLPoint lastPos{};
 			apath.getLastVertex(&lastPos);
 
-			apath.ellipticArcTo(BLPoint(rx, ry), xrot, larc, swp, BLPoint(lastPos.x + x, lastPos.y + y));
+			res = apath.ellipticArcTo(BLPoint(rx, ry), xrot, larc, swp, BLPoint(lastPos.x + x, lastPos.y + y));
 
 			iteration++;
 
@@ -577,16 +621,30 @@ namespace waavs
 		}
 
 		// Command - Z, z
-		static bool parseClose(ByteSpan& s, BLPath& apath, int& iteration)
+		static bool parseClose(ByteSpan& s, BLPath& apath, int& iteration) noexcept
 		{
+			BLResult res = BL_SUCCESS;
+			
 			if (iteration > 0)
 			{
-				printf("PARSECLOSE(), found close command after first command, ignoring\n");
+				// consume the character and return
+				// This deals with the odd case where there is a number
+				// typically '0' after a 'z' close
+
+#ifdef PATH_COMMAND_DEBUG
+				printf("PARSECLOSE(), unknown character after first command (%c), ignoring\n", *s);
+#endif
+				s++;
+				iteration++;
+
+
 				return false;
 			}
 			
-			apath.close();
+			res = apath.close();
+			
 #ifdef PATH_COMMAND_DEBUG
+			printf("// z\n");
 			printf("apath.close();\n");
 #endif
 			// No parameters expected to follow
@@ -599,51 +657,30 @@ namespace waavs
 		}
 
 
-		// A dispatch std::map that matches the command character to the
-		// appropriate parse function
-		static std::map<SegmentCommand, std::function<bool(ByteSpan&, BLPath&, int&)>> parseMap = {
-			{SegmentCommand::MoveTo, parseMoveTo},				// M
-			{SegmentCommand::MoveBy, parseMoveBy},				// m
-			{SegmentCommand::LineTo, parseLineTo},				// L
-			{SegmentCommand::LineBy, parseLineBy},				// l
-			{SegmentCommand::HLineTo, parseHLineTo},			// H
-			{SegmentCommand::HLineBy, parseHLineBy},			// h
-			{SegmentCommand::VLineTo, parseVLineTo},			// V
-			{SegmentCommand::VLineBy, parseVLineBy},			// v
-			{SegmentCommand::CubicTo, parseCubicTo},			// C
-			{SegmentCommand::CubicBy, parseCubicBy},			// c
-			{SegmentCommand::SCubicTo, parseSmoothCubicTo},		// S
-			{SegmentCommand::SCubicBy, parseSmoothCubicBy},		// s
-			{SegmentCommand::QuadTo, parseQuadTo},				// Q
-			{SegmentCommand::QuadBy, parseQuadBy},				// q
-			{SegmentCommand::SQuadTo, parseSmoothQuadTo},		// T
-			{SegmentCommand::SQuadBy, parseSmoothQuadBy},		// t
-			{SegmentCommand::ArcTo, parseArcTo},				// A
-			{SegmentCommand::ArcBy, parseArcBy},				// a
-			{SegmentCommand::CloseTo, parseClose},				// Z
-			{SegmentCommand::CloseBy, parseClose}				// z
-		};
 
 
-
-		static bool parsePath(const waavs::ByteSpan& inSpan, BLPath& apath)
+		static bool parsePath(const waavs::ByteSpan& inSpan, BLPath& apath) noexcept
 		{
 			// Use a ByteSpan as a cursor on the input
 			ByteSpan s = inSpan;
 			SegmentCommand currentCommand = SegmentCommand::INVALID;
 			int iteration = 0;
-
+			std::function<bool(ByteSpan&, BLPath&, int&)> pFunc{ nullptr };
+			bool success = false;
+			
 			while (s)
 			{
+
+				
 				// always ignore leading whitespace
-				s = chunk_ltrim(s, whitespaceChars);
+				s = chunk_ltrim(s, chrWspChars);
 
 				// If we've gotten to the end, we're done
 				// so just return
 				if (!s)
 					break;
 
-				if (commandChars[*s])
+				if (pathCmdChars[*s])
 				{
 					// we have a command
 					currentCommand = SegmentCommand(*s);
@@ -654,37 +691,66 @@ namespace waavs
 					// move past the command character
 					s++;
 				}
+				else {
+					// The tricky part here is, the character we're sitting
+					// on is not a valid command character, so we're either
+					// sitting at the beginning of a number, or we're sitting
+					// at an invalid command.
+					// We'll just assume we're sitting at a number, and 
+					// process it as if it's a continuation of the last command
+			        // to be more robust, we can check whether it's the beginning
+					// of a number or not.  If not, then return false
+					//if (!leadingChars[*s])
+					// {
+					//	 return false;
+					// }
+				}
 				
 #ifdef PATH_COMMAND_DEBUG
 				//printf("// Command: %c [%d]\n", currentCommand, iteration);
 #endif
 				
-				// search the parseMap to ensure it has the command
-				// and then call the appropriate parse function
-				auto it = parseMap.find(currentCommand);
-				if (it != parseMap.end())
+				switch (currentCommand)
 				{
-					// call the parse function
-					// if it fails, return error
-					if (!it->second(s, apath, iteration))
-					{
-						printf("Path Command Failed: %c\n", currentCommand);
+					case SegmentCommand::MoveTo: pFunc = parseMoveTo; break;
+					case SegmentCommand::MoveBy: pFunc = parseMoveBy; break;
+					case SegmentCommand::LineTo: pFunc = parseLineTo; break;
+					case SegmentCommand::LineBy: pFunc = parseLineBy; break;
+					case SegmentCommand::HLineTo: pFunc = parseHLineTo; break;
+					case SegmentCommand::HLineBy: pFunc = parseHLineBy; break;
+					case SegmentCommand::VLineTo: pFunc = parseVLineTo; break;
+					case SegmentCommand::VLineBy: pFunc = parseVLineBy; break;
+					case SegmentCommand::CubicTo: pFunc = parseCubicTo; break;
+					case SegmentCommand::CubicBy: pFunc = parseCubicBy; break;
+					case SegmentCommand::SCubicTo: pFunc = parseSmoothCubicTo; break;
+					case SegmentCommand::SCubicBy: pFunc = parseSmoothCubicBy; break;
+					case SegmentCommand::QuadTo: pFunc = parseQuadTo; break;
+					case SegmentCommand::QuadBy: pFunc = parseQuadBy; break;
+					case SegmentCommand::SQuadTo: pFunc = parseSmoothQuadTo; break;
+					case SegmentCommand::SQuadBy: pFunc = parseSmoothQuadBy; break;
+					case SegmentCommand::ArcTo: pFunc = parseArcTo; break;
+					case SegmentCommand::ArcBy: pFunc = parseArcBy; break;
+					case SegmentCommand::CloseTo: pFunc = parseClose; break;
+					case SegmentCommand::CloseBy: pFunc = parseClose; break;
 						
+					default:
+						printf("parsePath: INVALID COMMAND: %c\n", *s);
 						return false;
-					}
 				}
-				else
+				
+				if (pFunc != nullptr)
+					success = pFunc(s, apath, iteration);
+				
+				if (!success)
 				{
-					// we have an invalid command
-					// so return failure
-					printf("parsePath: INVALID COMMAND: %c\n", *s);
-
+					printf("parsePath: failed to parse command: %c\n", *s);
 					return false;
 				}
-
 			}
 
-			return true;
+			//printf("parsePath(), FINISHED\n");
+			
+			return success;
 		}
 	}
 }
