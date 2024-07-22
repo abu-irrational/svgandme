@@ -323,6 +323,15 @@ namespace std {
 	};
 }
 
+namespace waavs {
+	struct ByteSpanHash {
+		size_t operator()(const ByteSpan& span) const noexcept {
+			return waavs::fnv1a_32(span.data(), span.size());
+		}
+	};
+	
+	using bytesHash = std::hash<ByteSpan>;
+}
 
 // Functions that are implemented here
 namespace waavs {
@@ -815,6 +824,9 @@ namespace waavs {
 
 	static inline std::string toString(const ByteSpan& inChunk) noexcept
 	{
+		if (!inChunk)
+			return std::string();
+		
 		return std::string(inChunk.fStart, inChunk.fEnd);
 	}
 

@@ -522,12 +522,19 @@ namespace waavs {
 
             while (iter.next())
             {
-                std::string name = std::string((*iter).first.fStart, (*iter).first.fEnd);
-                if (!name.empty() && (*iter).second)
+                if ((*iter).first && (*iter).second)
                 {
-                    auto value = (*iter).second;
-					styleAttributes.addAttribute(name, value);
+                    // add raw attribute value to collection
+                    styleAttributes.addAttribute((*iter).first, (*iter).second);
                 }
+
+
+                //std::string name = std::string((*iter).first.fStart, (*iter).first.fEnd);
+                //if (!name.empty() && (*iter).second)
+                //{
+                //    auto value = (*iter).second;
+				//	styleAttributes.addAttribute(name, value);
+                //}
             }
         }
 
@@ -1076,6 +1083,10 @@ namespace waavs
     static bool parseTransform(const ByteSpan& inChunk, BLMatrix2D& xform)
     {        
         ByteSpan s = inChunk;
+        s = chunk_skip_wsp(s);
+        if (!s)
+            return false;
+        
         xform = BLMatrix2D::makeIdentity();
         
         bool isSet = false;

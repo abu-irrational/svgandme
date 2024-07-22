@@ -12,9 +12,6 @@
 using namespace waavs;
 
 
-
-
-
 // Reference to currently active document
 std::shared_ptr<SVGDocument> gDoc{ nullptr };
 ViewPort gViewPort{};
@@ -73,9 +70,14 @@ static void drawDocument(std::shared_ptr<SVGDocument> doc)
 	// setup any transform
 	ctx.setTransform(gViewPort.sceneToSurfaceTransform());
 
+	//double startTime = seconds();
+
 	// draw the document into the ctx
 	doc->draw(&ctx);
 	ctx.flush();
+	
+	//double endTime = seconds();
+	//printf("Drawing Duration: %f\n", endTime - startTime);
 }
 
 static void refreshDoc()
@@ -110,11 +112,10 @@ static void onFileDrop(const FileDropEvent& fde)
 
 		if (gDoc != nullptr)
 		{
-
-			
 			resetView();
 
-			auto objFr = gDoc->sceneFrame();
+			//auto objFr = gDoc->sceneFrame();
+			auto objFr = gDoc->frame();
 			
 			// Set the initial viewport
 			gViewPort.surfaceFrame({ 0, 0, (double)canvasWidth, (double)canvasHeight });

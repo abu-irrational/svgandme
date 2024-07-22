@@ -50,7 +50,7 @@ namespace waavs {
         
         // We only have a single root 'SVGSVGElement' for the whole document
         std::shared_ptr<SVGSVGElement> fSVGNode = nullptr;
-        //std::shared_ptr<SVGVisualNode> fSVGNode = nullptr;
+
         
         // We need a style sheet for the entire document
 		std::shared_ptr<CSSStyleSheet> fStyleSheet = nullptr;
@@ -66,8 +66,8 @@ namespace waavs {
 		double fDocumentHeight{};
         
         
-        std::unordered_map<std::string, std::shared_ptr<SVGViewable>> fDefinitions{};
-        std::unordered_map<std::string, ByteSpan> fEntities{};
+        std::unordered_map<ByteSpan, std::shared_ptr<SVGViewable>, ByteSpanHash> fDefinitions{};
+        std::unordered_map<ByteSpan, ByteSpan, ByteSpanHash> fEntities{};
         
         
         //==========================================
@@ -108,12 +108,12 @@ namespace waavs {
 		//=================================================================
         // Expand text that may have entities in it
         // return true if there were any entities
-        bool expandText(const ByteSpan& txt, std::ostringstream& oss)
-        {
-            return false;
-        }
+        //bool expandText(const ByteSpan& txt, std::ostringstream& oss)
+        //{
+        //    return false;
+        //}
         
-        std::shared_ptr<SVGViewable> getElementById(const std::string& name) override
+        std::shared_ptr<SVGViewable> getElementById(const ByteSpan& name) override
         {
             // BUGBUG - this is the older more wasteful way
             //	if (fDefinitions.find(name) != fDefinitions.end())
@@ -124,7 +124,7 @@ namespace waavs {
 			if (it != fDefinitions.end())
 				return it->second;
 
-            printf("SVGDocument::getElementById, FAIL: %s\n", name.c_str());
+            printf("SVGDocument::getElementById, FAIL: %s\n", toString(name).c_str());
             
 			return nullptr;
 		}
@@ -148,9 +148,9 @@ namespace waavs {
                 return nullptr;
 
             // lookup the thing we're referencing
-            std::string idStr = toString(id);
+            //std::string idStr = toString(id);
 
-            return getElementById(idStr);
+            return getElementById(id);
         }
 
         // Load a URL reference, including the 'url(' function indicator
@@ -174,46 +174,33 @@ namespace waavs {
             return findNodeByHref(id);
         }
         
-        ByteSpan findEntity(const std::string& name) override
+        ByteSpan findEntity(const ByteSpan& name) override
         {
-			//if (fEntities.find(name) != fEntities.end())
-			//	return fEntities[name];
 			auto it = fEntities.find(name);
 			if (it != fEntities.end())
 				return it->second;
             
-			printf("SVGDocument::findEntity(), FAIL: %s\n", name.c_str());
+			printf("SVGDocument::findEntity(), FAIL: %s\n", toString(name).c_str());
             
 			return ByteSpan{};
         }
         
-        void addDefinition(const std::string& name, std::shared_ptr<SVGViewable> obj)
+        void addDefinition(const ByteSpan & name, std::shared_ptr<SVGViewable> obj)
         {
             fDefinitions[name] = obj;
         }
         
-        virtual void addEntity(const std::string& name, ByteSpan expansion)
+        virtual void addEntity(const ByteSpan & name, ByteSpan expansion)
         {
             fEntities[name] = expansion;
         }
 
-        void update() override
-        {
-			if (fSVGNode)
-				fSVGNode->update();
-        }
         
         void draw(IRenderSVG * ctx) override
         {
-            if (nullptr == fSVGNode)
-                return;
-
-            double startTime = seconds();
-
-            // Setup default context
+            // Setup default values for a SVG context
             ctx->strokeJoin(BL_STROKE_JOIN_MITER_CLIP);
             ctx->setFillRule(BL_FILL_RULE_NON_ZERO);
-            //ctx->setFillRule(BL_FILL_RULE_EVEN_ODD);
             ctx->fill(BLRgba32(0, 0, 0));
             ctx->noStroke();
             ctx->strokeWidth(1.0);
@@ -221,27 +208,17 @@ namespace waavs {
             ctx->textFamily("Arial");
             ctx->textSize(16);
 
-            
-            fSVGNode->draw(ctx);
-			double endTime = seconds();
-
-			//printf("Drawing Duration: %f\n", endTime - startTime);
+            SVGGraphicsElement::draw(ctx);
         }
         
-        BLRect sceneFrame() const
-        {
-            if (nullptr == fSVGNode)
-                return BLRect();
-            
-            return fSVGNode->frame();
-        }
-
+        
         
         bool addNode(std::shared_ptr < SVGVisualNode > node) override
         {            
 			if (!SVGGraphicsElement::addNode(node))
                 return false;
 
+            
             if (node->name() == "svg")
             {
 
@@ -249,23 +226,19 @@ namespace waavs {
                 {
                     fSVGNode = std::dynamic_pointer_cast<SVGSVGElement>(node);
                     
-                    //BLRect vport = fSVGNode->viewport();
-                    //fCanvasWidth = vport.w;
-                    //fCanvasHeight = vport.h;
-
-                    fSVGNode->bindToGroot(this);
-
-                    // now get the document width from the bound viewport
-					//fDocumentWidth = fSVGNode->width();
-					//fDocumentHeight = fSVGNode->height();
 				}
 
             }
-
+            
             return true;
         }
         
+		void loadSelfFromXmlIterator(XmlElementIterator& iter) override
+		{
+            // do nothing here
+		}
         
+        ///*
         // Load the document from an XML Iterator
         // Since this is the top level document, we just want to kick
         // off loading the root node 'svg', and we're done 
@@ -299,18 +272,28 @@ namespace waavs {
                 }
             }
         }
+        //*/
         
         
 		// Assuming we've already got a file mapped into memory, load the document
         bool loadFromChunk(const ByteSpan &srcChunk)
         {
             // create a memBuff from srcChunk
+            // since we use memory references, we need
+            // to keep the memory around for the duration of the 
+            // document's life
             fSourceMem.initFromSpan(srcChunk);
             
+			// Create the XML Iterator we're going to use to parse the document
             XmlElementIterator iter(fSourceMem.span(), true);
 
             loadFromXmlIterator(iter);
-
+			
+            // Bind to Graphics Root here
+            // This binding could happen at draw time instead
+            // for maximum flexibility
+            bindToGroot(this);
+            
             return true;
         }
 
